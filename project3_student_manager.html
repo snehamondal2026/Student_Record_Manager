@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Record Manager | ITI IT Trade Project</title>
+<style>
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI', Arial, sans-serif;
+    background:#0f172a;
+    color:#e2e8f0;
+    padding:24px;
+  }
+  header{text-align:center;margin-bottom:24px;}
+  header h1{
+    font-size:1.8rem;
+    background:linear-gradient(90deg,#fb923c,#f472b6);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    margin-bottom:4px;
+  }
+  header p{color:#94a3b8;margin:0;}
+
+  .wrap{max-width:900px;margin:0 auto;}
+
+  .form-card{
+    background:#1e293b;
+    border-radius:16px;
+    padding:24px;
+    margin-bottom:24px;
+    box-shadow:0 10px 25px rgba(0,0,0,.35);
+  }
+  .form-card h2{margin-top:0;color:#fb923c;font-size:1.1rem;}
+  .form-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:14px;
+  }
+  input, select{
+    width:100%;
+    padding:10px 12px;
+    border-radius:8px;
+    border:1px solid #334155;
+    background:#0f172a;
+    color:#e2e8f0;
+    font-size:0.95rem;
+  }
+  label{font-size:0.8rem;color:#94a3b8;margin-bottom:4px;display:block;}
+  .field{display:flex;flex-direction:column;}
+
+  .btn-row{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;}
+  button{
+    cursor:pointer;
+    border:none;
+    border-radius:8px;
+    padding:10px 20px;
+    font-weight:bold;
+    font-size:0.9rem;
+  }
+  .btn-primary{background:linear-gradient(90deg,#fb923c,#f472b6);color:#0f172a;}
+  .btn-secondary{background:#334155;color:#e2e8f0;}
+  .btn-danger{background:#ef4444;color:#fff;}
+  .btn-small{padding:6px 12px;font-size:0.8rem;}
+
+  .search-row{margin-bottom:14px;display:flex;gap:10px;}
+  .search-row input{flex:1;}
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    background:#1e293b;
+    border-radius:12px;
+    overflow:hidden;
+  }
+  th,td{
+    padding:10px 12px;
+    text-align:left;
+    border-bottom:1px solid #334155;
+    font-size:0.9rem;
+  }
+  th{background:#0f172a;color:#fb923c;}
+  tr:hover{background:#273449;}
+  .empty-msg{text-align:center;color:#64748b;padding:20px;}
+  .stat-badge{
+    display:inline-block;
+    background:#334155;
+    padding:4px 12px;
+    border-radius:20px;
+    font-size:0.8rem;
+    margin-left:10px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎓 Student Record Manager</h1>
+  <p>Mini Database System — Add / View / Search / Edit / Delete <span class="stat-badge" id="countBadge">0 records</span></p>
+</header>
+
+<div class="wrap">
+
+  <div class="form-card">
+    <h2 id="formTitle">➕ Add New Student Record</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label>Roll No.</label>
+        <input type="text" id="rollNo" placeholder="e.g. 101">
+      </div>
+      <div class="field">
+        <label>Full Name</label>
+        <input type="text" id="name" placeholder="e.g. Rahul Kumar">
+      </div>
+      <div class="field">
+        <label>Trade</label>
+        <input type="text" id="trade" placeholder="e.g. Information Technology">
+      </div>
+      <div class="field">
+        <label>Year</label>
+        <select id="year">
+          <option value="1st Year">1st Year</option>
+          <option value="2nd Year">2nd Year</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Marks (%)</label>
+        <input type="number" id="marks" placeholder="e.g. 78" min="0" max="100">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" id="saveBtn">Save Record</button>
+      <button class="btn-secondary" id="clearBtn">Clear Form</button>
+    </div>
+  </div>
+
+  <div class="search-row">
+    <input type="text" id="searchBox" placeholder="🔍 Search by Roll No. or Name...">
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Roll No.</th><th>Name</th><th>Trade</th><th>Year</th><th>Marks</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+  <div class="empty-msg" id="emptyMsg" style="display:none;">No student records found. Add one above!</div>
+</div>
+
+<script>
+  // ---------- Data storage (using browser localStorage as our "database") ----------
+  let students = JSON.parse(localStorage.getItem("studentRecords")) || [];
+  let editingRoll = null; // tracks which record is being edited
+
+  const rollNoInput = document.getElementById("rollNo");
+  const nameInput = document.getElementById("name");
+  const tradeInput = document.getElementById("trade");
+  const yearInput = document.getElementById("year");
+  const marksInput = document.getElementById("marks");
+  const saveBtn = document.getElementById("saveBtn");
+  const clearBtn = document.getElementById("clearBtn");
+  const tableBody = document.getElementById("tableBody");
+  const searchBox = document.getElementById("searchBox");
+  const emptyMsg = document.getElementById("emptyMsg");
+  const formTitle = document.getElementById("formTitle");
+  const countBadge = document.getElementById("countBadge");
+
+  function saveToStorage(){
+    localStorage.setItem("studentRecords", JSON.stringify(students));
+  }
+
+  function renderTable(filter = ""){
+    const filtered = students.filter(s =>
+      s.rollNo.toLowerCase().includes(filter.toLowerCase()) ||
+      s.name.toLowerCase().includes(filter.toLowerCase())
+    );
+
+    tableBody.innerHTML = "";
+    filtered.forEach(s => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${s.rollNo}</td>
+        <td>${s.name}</td>
+        <td>${s.trade}</td>
+        <td>${s.year}</td>
+        <td>${s.marks}</td>
+        <td>
+          <button class="btn-secondary btn-small" onclick="editRecord('${s.rollNo}')">Edit</button>
+          <button class="btn-danger btn-small" onclick="deleteRecord('${s.rollNo}')">Delete</button>
+        </td>`;
+      tableBody.appendChild(tr);
+    });
+
+    emptyMsg.style.display = filtered.length === 0 ? "block" : "none";
+    countBadge.textContent = students.length + " record" + (students.length !== 1 ? "s" : "");
+  }
+
+  function clearForm(){
+    rollNoInput.value = "";
+    nameInput.value = "";
+    tradeInput.value = "";
+    yearInput.value = "1st Year";
+    marksInput.value = "";
+    editingRoll = null;
+    formTitle.textContent = "➕ Add New Student Record";
+    rollNoInput.disabled = false;
+  }
+
+  saveBtn.addEventListener("click", ()=>{
+    const rollNo = rollNoInput.value.trim();
+    const name = nameInput.value.trim();
+    const trade = tradeInput.value.trim();
+    const year = yearInput.value;
+    const marks = marksInput.value.trim();
+
+    if(!rollNo || !name){
+      alert("Please enter at least Roll No. and Name.");
+      return;
+    }
+
+    if(editingRoll){
+      // update existing record
+      const idx = students.findIndex(s => s.rollNo === editingRoll);
+      students[idx] = { rollNo, name, trade, year, marks };
+    } else {
+      // check duplicate roll number
+      if(students.some(s => s.rollNo === rollNo)){
+        alert("A record with this Roll No. already exists!");
+        return;
+      }
+      students.push({ rollNo, name, trade, year, marks });
+    }
+
+    saveToStorage();
+    renderTable(searchBox.value);
+    clearForm();
+  });
+
+  clearBtn.addEventListener("click", clearForm);
+
+  function editRecord(rollNo){
+    const student = students.find(s => s.rollNo === rollNo);
+    if(!student) return;
+    rollNoInput.value = student.rollNo;
+    nameInput.value = student.name;
+    tradeInput.value = student.trade;
+    yearInput.value = student.year;
+    marksInput.value = student.marks;
+    editingRoll = rollNo;
+    rollNoInput.disabled = true; // roll no is the unique key, lock it while editing
+    formTitle.textContent = "✏️ Editing Record: " + rollNo;
+    window.scrollTo({top:0, behavior:"smooth"});
+  }
+
+  function deleteRecord(rollNo){
+    if(!confirm("Delete record with Roll No. " + rollNo + "?")) return;
+    students = students.filter(s => s.rollNo !== rollNo);
+    saveToStorage();
+    renderTable(searchBox.value);
+  }
+
+  searchBox.addEventListener("input", ()=> renderTable(searchBox.value));
+
+  // ---------- Initial render ----------
+  renderTable();
+</script>
+
+</body>
+</html>
